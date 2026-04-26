@@ -84,16 +84,16 @@ export default async function NewMemberPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="id_proof_file">ID proof (PDF)</Label>
+              <Label htmlFor="id_proof_file">ID proof</Label>
               <Input
                 id="id_proof_file"
                 name="id_proof_file"
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,image/*"
                 className="cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-muted/80"
               />
               <p className="text-xs text-muted-foreground">
-                Aadhaar, driving licence, or passport scan. PDF only · up to 10 MB.
+                Aadhaar, driving licence, or passport — PDF or photo. Up to 15 MB; we&apos;ll auto-compress.
               </p>
             </div>
             <SubmitButton>Save member</SubmitButton>

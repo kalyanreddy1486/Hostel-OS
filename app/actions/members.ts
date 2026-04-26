@@ -7,9 +7,12 @@ import { z } from "zod";
 import { createActionClient } from "@/lib/supabase/action";
 import { writeAudit } from "@/lib/audit";
 import { requireAdmin, requireStaffOrAdmin } from "@/lib/require-role";
+import { compressIdProof } from "@/lib/id-proof-compress";
 
 const ID_PROOF_BUCKET = "id-proofs";
-const MAX_ID_PROOF_BYTES = 10 * 1024 * 1024; // 10 MB
+// Cap the *upload* at 15 MB so high-res phone PDFs / heic images get through;
+// compression brings them down to ~150 KB before they hit Supabase Storage.
+const MAX_ID_PROOF_BYTES = 15 * 1024 * 1024;
 
 const memberSchema = z.object({
   name: z.string().min(1),
@@ -26,17 +29,20 @@ async function uploadIdProof(
   memberId: string,
   file: File,
 ): Promise<string> {
-  if (file.type !== "application/pdf") {
-    throw new Error("ID proof must be a PDF file.");
-  }
   if (file.size > MAX_ID_PROOF_BYTES) {
-    throw new Error("ID proof must be 10 MB or smaller.");
+    throw new Error("ID proof must be 15 MB or smaller.");
   }
-  const path = `${memberId}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  // Accepts PDF or image. Server-side: downsizes images, strips EXIF (PII),
+  // re-emits as PDF. Typical 1-3 MB phone scan ends up ~150-300 KB.
+  const compressed = await compressIdProof(file);
+  // Always store as .pdf — the bucket is homogeneous, the download API
+  // returns application/pdf regardless of original input.
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_").replace(/\.[^.]+$/, "");
+  const path = `${memberId}/${Date.now()}-${safeName || "id"}.pdf`;
   const { error } = await supabase.storage
     .from(ID_PROOF_BUCKET)
-    .upload(path, file, {
-      contentType: "application/pdf",
+    .upload(path, compressed.bytes, {
+      contentType: compressed.contentType,
       upsert: false,
     });
   if (error) throw new Error(`Upload failed: ${error.message}`);

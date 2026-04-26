@@ -256,7 +256,7 @@ export default async function MemberDetailPage({
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="id_proof_file">ID proof (PDF)</Label>
+              <Label htmlFor="id_proof_file">ID proof</Label>
               {member.id_proof_url ? (
                 <p className="text-xs text-muted-foreground">
                   Current file on record.{" "}
@@ -278,11 +278,11 @@ export default async function MemberDetailPage({
                 id="id_proof_file"
                 name="id_proof_file"
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,image/*"
                 className="cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-muted/80"
               />
               <p className="text-xs text-muted-foreground">
-                Upload a new PDF to replace the current file. Up to 10 MB.
+                Upload a PDF or photo to replace the current file. Up to 15 MB; we&apos;ll auto-compress.
               </p>
             </div>
             <SubmitButton>Save changes</SubmitButton>
