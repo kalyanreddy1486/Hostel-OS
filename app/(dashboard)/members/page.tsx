@@ -5,6 +5,7 @@ import { serverFetch } from "@/lib/server/origin";
 import { Input } from "@/components/ui/input";
 import { MembersTable, type MemberRow } from "@/components/members/members-table";
 import { FormSelect } from "@/components/ui/form-select";
+import { FilterForm } from "@/components/shared/filter-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PageActions } from "@/components/ui/page-actions";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -67,7 +68,7 @@ export default async function MembersPage({
       />
 
       <div className="rounded-2xl border bg-card p-4">
-        <form className="flex flex-wrap items-center gap-2" method="get">
+        <FilterForm className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -100,7 +101,7 @@ export default async function MembersPage({
               Clear
             </a>
           ) : null}
-        </form>
+        </FilterForm>
       </div>
 
       {members.length === 0 ? (

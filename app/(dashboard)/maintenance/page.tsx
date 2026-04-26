@@ -17,6 +17,7 @@ import { serverFetch } from "@/lib/server/origin";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Wrench, Plus } from "lucide-react";
 import { FormSelect } from "@/components/ui/form-select";
+import { FilterForm } from "@/components/shared/filter-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PageActions } from "@/components/ui/page-actions";
 
@@ -91,7 +92,7 @@ export default async function MaintenancePage({
         }
       />
 
-      <form className="flex flex-wrap gap-2" method="get">
+      <FilterForm className="flex flex-wrap gap-2">
         <FormSelect name="status" defaultValue={status} className="w-44">
           <option value="">All statuses</option>
           <option value="open">Open</option>
@@ -117,7 +118,7 @@ export default async function MaintenancePage({
             Clear
           </Link>
         ) : null}
-      </form>
+      </FilterForm>
 
       <div className="hidden rounded-md border bg-card sm:block">
         <Table>

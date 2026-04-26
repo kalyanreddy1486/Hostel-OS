@@ -4,6 +4,7 @@ import { requireStaffOrAdmin } from "@/lib/require-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSelect } from "@/components/ui/form-select";
+import { FilterForm } from "@/components/shared/filter-form";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PageActions } from "@/components/ui/page-actions";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -108,7 +109,7 @@ export default async function BillingPage({
 
       <PaymentClaimsPanel />
 
-      <form className="flex flex-wrap gap-2" method="get">
+      <FilterForm className="flex flex-wrap gap-2">
         <FormSelect name="status" defaultValue={status} className="w-44">
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
@@ -133,7 +134,7 @@ export default async function BillingPage({
             Clear
           </Link>
         ) : null}
-      </form>
+      </FilterForm>
 
       <BillingTable
         invoices={invoices}
