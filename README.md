@@ -8,7 +8,9 @@
 
 ## Live demo
 
-> 🚧 Live URL coming after first deploy.
+**→ https://hostel-os-zeta.vercel.app**
+
+Sign in with `895kkr@gmail.com` / `kalyan123456` to see the admin view, or hit `/register` to spin up your own hostel from scratch.
 
 ## Why this exists
 
