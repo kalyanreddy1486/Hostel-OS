@@ -6,26 +6,118 @@
 
 ---
 
-## Live demo
+## 🌐 Live
 
-**→ https://hostel-os-zeta.vercel.app**
+- **App:** https://hostel-os-zeta.vercel.app
+- **Demo login:** `895kkr@gmail.com` / `kalyan123456`
+- **Or:** sign up your own hostel at https://hostel-os-zeta.vercel.app/register
 
-Sign in with `895kkr@gmail.com` / `kalyan123456` to see the admin view, or hit `/register` to spin up your own hostel from scratch.
+---
 
-## Why this exists
+## 🚀 How to use it (admin / hostel owner)
 
-Most hostel managers in India run their operation on paper, Excel, and a chaotic group chat. Rent gets missed, electricity bills get disputed, and reconciling who owes what at month-end takes a full evening. HostelOS folds the whole thing into one calm dashboard:
+This is the workflow from "I just signed up" to "my hostel is fully running on HostelOS."
 
-- Bills go out automatically every month
-- Residents see exactly what they owe and pay via UPI deep-link
-- Maintenance complaints route straight to staff
-- The owner sees collected vs. outstanding in real time, by day
+### 1 — Sign up
 
-## Highlights
+1. Visit https://hostel-os-zeta.vercel.app/register
+2. Enter your email + hostel name
+3. Check your inbox for a 6-digit OTP, paste it back in
+4. Set a password
+5. You're in — landed on `/dashboard`
+
+### 2 — Tell HostelOS about your UPI ID
+
+Open **Settings → UPI payments**. Paste your UPI VPA (e.g. `9876543210@okhdfcbank`) and the payee name to show in UPI apps. Save. Every reminder you send from now on includes a one-tap UPI deep link for residents.
+
+### 3 — Set up your rooms
+
+Open **Rooms → Add room**. For each room give it:
+- Room number (101, 102, A1, whatever you use)
+- Type (single / double / triple / dormitory)
+- Floor
+- Capacity (1–6 — beds get auto-created)
+- Monthly rent
+- Amenities (AC, attached bathroom, wifi, wardrobe, geyser)
+
+Add as many rooms as you have. The Rooms page lets you filter by **floor**, **sharing type**, **AC / non-AC**, and **availability** — handy when prospects ask "what 2-sharing AC rooms do you have free?"
+
+### 4 — Add your residents
+
+Open **Members → Add member**. Fill in name, phone, email, emergency contact, and upload an ID proof (Aadhaar / PAN / passport — PDF or photo, we auto-compress and strip EXIF).
+
+### 5 — Assign a bed to each member
+
+Open **Assignments**, pick a member + a free bed, set the move-in date and any deposit / advance, and click **Assign**. The bed flips to "occupied", the member's status flips to "active", and they're billable from that date.
+
+### 6 — Generate the first invoice
+
+Open **Billing → New invoice**. Pick the **room** first, then the **member** in that room (the dropdown narrows down). Rent auto-fills from the room's monthly rate. Add any electricity / food / extras / late fees. Click **Create invoice**.
+
+The invoice goes out by email immediately (resident gets the UPI link + a "Confirm payment" link).
+
+### 7 — Collect rent
+
+Two paths:
+- **Resident pays via UPI** → opens your custom-saved email/WhatsApp link → after paying, hits the confirm-payment page → pastes their UTR. You see the claim in **Billing → Pending claims**, click **Confirm**.
+- **Resident pays cash / bank transfer** → open **Payments → Record payment** → pick the member, amount, mode, reference.
+
+Either way, the invoice flips to **paid** and the dashboard updates instantly.
+
+### 8 — Handle maintenance
+
+When something breaks:
+- **Resident reports it** at https://your-app.com/report-issue (no login needed) — staff sees it in **Maintenance**
+- **Or you log it yourself** at **Maintenance → New ticket**
+
+Assign to a staff member, set priority, mark resolved when done. Resident gets an automatic email when status changes.
+
+### 9 — Send rent reminders
+
+For any unpaid invoice on **Billing**:
+- **WhatsApp:** click the WhatsApp icon → opens wa.me with your custom message + UPI link pre-filled
+- **Email:** click the email icon → sends the email immediately
+- **Bulk:** click **"Send reminders to all overdue"** at the top of `/billing`
+
+Email reminders also fire **automatically every morning at 09:00 UTC** for any overdue invoice.
+
+### 10 — Customise the messages
+
+Open **Settings**. Two cards let you edit the actual text of:
+- **WhatsApp reminder message** — what residents see when you click the WhatsApp button
+- **Email reminder body** — what they receive in the rent reminder email
+
+Both support `{placeholder}` tokens (`{name}`, `{amount}`, `{due_date}`, `{upi_vpa}`, `{claim_link}`, `{report_link}`) with a live preview as you type. Saving an empty body uses the built-in default.
+
+### 11 — Track money + occupancy
+
+- **Dashboard** — KPIs (occupied beds, active members, pending dues), 30-day collection trend, expenditure card, outstanding invoices, urgent tickets
+- **Reports** — billing vs collection over 3 / 6 / 12 months, payment-mode mix, ticket SLA
+
+### 12 — When a resident leaves
+
+Open their member page → **Check out**. Their bed frees up, status flips to "left", any unpaid invoice stays attached. **Six months after checkout** the system auto-deletes their stored ID proof (DPDP-compliant retention).
+
+---
+
+## 🤝 How residents use it (no login required)
+
+Residents never see the admin app. They only interact with two public links:
+
+| Link | What they do |
+|---|---|
+| `/pay/<invoice-id>` (sent in reminders) | Pay via UPI deep link → paste UTR → admin confirms within 24h |
+| `/report-issue` | Pick the hostel name + describe the problem → ticket lands in admin's `/maintenance` |
+
+No accounts, no passwords, no app to install.
+
+---
+
+## ✨ Highlights
 
 - 🏠 **Multi-tenant** — one deployment serves many hostels, isolated by Postgres row-level security
 - 🛏 **Rooms · beds · members · assignments** — full occupancy model with bed-level granularity
-- 💸 **Billing engine** — monthly invoices auto-generated by `pg_cron`, late fees applied on overdue, partial payments tracked
+- 💸 **Billing engine** — monthly invoices auto-generated by `pg_cron`, late fees on overdue, partial payments tracked
 - 📱 **WhatsApp click-to-chat reminders** — free, no API fees, just `wa.me` deep links
 - 📨 **Email reminders** — configurable templates, automatic + on-demand
 - 🔐 **Self-service auth** — signup with OTP, forgot-password with rate-limited 6-digit codes
@@ -34,7 +126,9 @@ Most hostel managers in India run their operation on paper, Excel, and a chaotic
 - 📊 **Reports** — billing vs collection chart, payment-mix breakdown, occupancy %, ticket SLA
 - 🇮🇳 Built for **₹** (INR) and Indian banking conventions
 
-## Tech stack
+---
+
+## 🛠 Tech stack
 
 | Layer | Choice |
 |---|---|
@@ -42,9 +136,11 @@ Most hostel managers in India run their operation on paper, Excel, and a chaotic
 | Backend | Next.js Server Actions · Supabase Postgres · Edge Functions for cron jobs |
 | Database | Postgres with Row-Level Security · `pg_cron` for scheduled jobs · `pg_net` for outbound HTTP |
 | Auth | Supabase Auth (email/password + OTP) |
+| Storage | Supabase Storage (id-proofs bucket, RLS-gated, 60-second signed URLs) |
 | Observability | Sentry |
 | Hosting | Vercel (Mumbai region for low latency to Indian users) |
 | Email | Configurable SMTP (Gmail / Resend / any provider) |
+| File compression | `sharp` for images, `pdf-lib` for PDFs (server-side, EXIF stripped) |
 
 ## Architecture in one screen
 
@@ -52,9 +148,9 @@ Most hostel managers in India run their operation on paper, Excel, and a chaotic
 ┌────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
 │  Browser       │────▶│  Next.js on Vercel    │────▶│ Supabase Mumbai  │
 │ (admin / staff │     │  - SSR + Server      │     │ - Postgres + RLS │
-│  / resident /  │     │    Actions           │     │ - pg_cron jobs   │
-│  public)       │     │  - Suspense streaming│     │ - Edge Functions │
-└────────────────┘     └──────────────────────┘     └──────────────────┘
+│  / public)     │     │    Actions           │     │ - pg_cron jobs   │
+└────────────────┘     │  - Suspense streaming│     │ - Edge Functions │
+                       └──────────────────────┘     └──────────────────┘
                                   │
                                   ▼
                         ┌──────────────────┐
@@ -64,9 +160,9 @@ Most hostel managers in India run their operation on paper, Excel, and a chaotic
 
 Every database read/write goes through RLS — admin A can never see admin B's residents, even with a stolen anon key. Service-role calls (cron jobs, public endpoints) are deliberate and audited.
 
-## Performance
+## ⚡ Performance
 
-Measured on a production build, warm cache, with 200 rooms · 700+ residents · 700+ active assignments:
+Measured on production (Mumbai region), warm cache, with 200 rooms · 700+ residents · 700+ active assignments seeded for the load test:
 
 | Page | LCP | TTFB |
 |---|---|---|
@@ -78,12 +174,23 @@ Measured on a production build, warm cache, with 200 rooms · 700+ residents · 
 
 All Core Web Vitals firmly in Google's "Good" zone. The dashboard streams via React Suspense — hero paints in 400 ms, KPI cards arrive as data loads.
 
-## Local development
+## 🔁 What runs automatically
+
+| Cron job | Schedule (UTC) | Schedule (IST) | Purpose |
+|---|---|---|---|
+| Email rent reminders | `0 9 * * *` | 14:30 daily | Sends reminders for overdue invoices |
+| ID-proof cleanup | `30 3 * * *` | 09:00 daily | Deletes ID proofs of members checked out >6 months (DPDP-compliant) |
+| Monthly invoice generation | `0 2 1 * *` | 07:30 on 1st of month | Auto-generates next month's invoices for all active residents (pg_cron) |
+| Mark overdue | `0 4 * * *` | 09:30 daily | Flips invoices past due date from `pending` → `overdue` (pg_cron) |
+
+---
+
+## 💻 Local development
 
 ```bash
 # 1. Clone + install
-git clone <this-repo>
-cd hostel-os
+git clone https://github.com/kalyanreddy1486/Hostel-OS.git
+cd Hostel-OS
 npm install
 
 # 2. Configure env vars
@@ -95,7 +202,7 @@ npm run dev
 # → http://localhost:3000
 ```
 
-## Database setup
+### Database setup
 
 Connect any Supabase project (free tier works). The schema lives in `supabase/migrations/` — apply in order. Key migrations:
 
@@ -105,7 +212,7 @@ Connect any Supabase project (free tier works). The schema lives in `supabase/mi
 - `*_invoice_last_email_reminder.sql` — reminder cooldown tracking
 - `*_signup_otps.sql` — public signup verification
 
-## Project structure
+### Project structure
 
 ```
 hostel-os/
@@ -129,7 +236,9 @@ hostel-os/
 └── scripts/             # seed-load-test.ts, wipe-test-data.ts, apply-migration.ts
 ```
 
-## Security
+---
+
+## 🔒 Security
 
 - Row-level security on every table — `tenant_id = get_my_tenant_id()` policy on every row
 - SECURITY DEFINER RPCs (`assign_bed`, `transfer_bed`, `checkout_member`, `delete_member`) call `assert_*_in_my_tenant()` helpers before any write
@@ -137,12 +246,31 @@ hostel-os/
 - Generic error messages on the public auth surface (no account enumeration)
 - Rate-limited OTP issuance (3 per hour per email)
 - All public endpoints (`/pay/*`, `/report-issue`, `/api/public-claim`) explicitly listed in middleware
+- ID proofs in private bucket, served only via 60-second signed URLs through an authenticated proxy
+- ID proof PDFs auto-purged 6 months after resident checkout (DPDP Act data minimization)
 - 20+ findings from a self-conducted security audit fixed pre-launch (see `docs/`)
 
-## License
+---
+
+## 📦 Useful npm scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start dev server on :3000 |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint via `next lint` |
+| `npx tsx scripts/seed-load-test.ts <admin-email>` | Seed 200 rooms + 700 synthetic members for a tenant |
+| `npx tsx scripts/wipe-test-data.ts` | Delete all `Test ` and `9000-9199`-numbered test data (set `TENANT_ID` env var) |
+| `npx tsx scripts/apply-migration.ts <file.sql>` | Apply a SQL migration via Supabase Management API |
+| `npx tsx scripts/push-env-to-vercel.ts` | Push every var from `.env.local` to Vercel |
+
+---
+
+## 📜 License
 
 [AGPL-3.0](./LICENSE) — anyone running this code as a service must open-source their version. If that doesn't suit you, reach out for a commercial license.
 
-## Author
+## 👤 Author
 
 Built solo as an end-to-end engineering exercise: from schema design and RLS policies through SSR rendering, client interactivity, cron jobs, observability, and deploy. Open to questions about any decision in here.
