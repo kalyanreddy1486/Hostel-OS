@@ -9,6 +9,11 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/public-claim",
   "/api/public-ticket",
+  // Cron endpoints — auth is enforced inside each route via CRON_SECRET
+  // bearer header. Vercel Cron / pg_cron callers don't have a Supabase
+  // session cookie, so the user-auth middleware would otherwise 307 them
+  // to /login.
+  "/api/cron",
   "/_next",
   "/favicon.ico",
 ];
