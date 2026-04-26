@@ -1,3 +1,8 @@
+import {
+  applyEmailTemplate,
+  plainTextToEmailHtml,
+} from "@/lib/email-template";
+
 function escape(s: string) {
   return s
     .replace(/&/g, "&amp;")
@@ -112,7 +117,43 @@ export function rentReminderEmail(opts: {
   reportLink?: string | null;
   /** When true, opens with "Your new invoice is ready" instead of "Reminder". */
   fresh?: boolean;
+  /**
+   * Optional admin-customised plain-text template with {placeholder} tokens.
+   * When provided (non-empty), the email body is rendered from this and the
+   * built-in styled blocks (UPI box, confirm button) are skipped — the admin
+   * controls the layout. Empty/missing → use the built-in default below.
+   */
+  customTemplate?: string | null;
 }) {
+  // ---- Custom-template path -------------------------------------------------
+  // Admin saved their own message in Settings → Email reminder.
+  // Render their plain text with {placeholder} substitution + autolinking.
+  if (opts.customTemplate && opts.customTemplate.trim()) {
+    const values: Record<string, string> = {
+      name: opts.memberName,
+      amount: formatRupees(opts.amountDue),
+      month: opts.billingMonth,
+      due_date: opts.dueDate,
+      invoice: opts.invoiceNumber,
+      upi_vpa: opts.upiVpa ?? "",
+      claim_link: opts.claimLink ?? "",
+      report_link: opts.reportLink ?? "",
+    };
+    const text = applyEmailTemplate(opts.customTemplate, values);
+    const bodyHtml = plainTextToEmailHtml(text);
+    return {
+      subject: opts.fresh
+        ? `Your invoice · ${formatRupees(opts.amountDue)} due ${opts.dueDate}`
+        : `Rent reminder · ${formatRupees(opts.amountDue)} due ${opts.dueDate}`,
+      html: shell({
+        title: opts.fresh ? "Your invoice is ready" : "Rent reminder",
+        body: bodyHtml,
+      }),
+      text,
+    };
+  }
+
+  // ---- Default path (built-in styled template, used when admin hasn't customised) ----
   const opener = opts.fresh
     ? `Your invoice for <strong>${escape(opts.billingMonth)}</strong> is ready. Rent of <strong>${formatRupees(opts.amountDue)}</strong> is due on <strong>${escape(opts.dueDate)}</strong>${
         opts.daysRemaining > 0

@@ -24,6 +24,7 @@ async function loadReminderContext() {
   return {
     upiVpa: settings.upi_vpa || null,
     baseUrl,
+    customTemplate: settings.email_template || null,
   };
 }
 
@@ -197,7 +198,11 @@ type InvoiceRow = {
 
 type Member = { id: string; name: string; email: string | null };
 
-type ReminderContext = { upiVpa: string | null; baseUrl: string };
+type ReminderContext = {
+  upiVpa: string | null;
+  baseUrl: string;
+  customTemplate: string | null;
+};
 
 async function deliverReminder(
   invoice: InvoiceRow,
@@ -240,6 +245,7 @@ async function deliverReminder(
     claimLink,
     reportLink,
     fresh,
+    customTemplate: ctx.customTemplate,
   });
 
   const r = await sendEmail({

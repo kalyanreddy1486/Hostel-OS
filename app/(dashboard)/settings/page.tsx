@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/card";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { WhatsappTemplateForm } from "@/components/settings/whatsapp-template-form";
+import { EmailTemplateForm } from "@/components/settings/email-template-form";
 import { PasswordChangeForm } from "@/components/settings/password-change-form";
 import { PageHeading } from "@/components/ui/page-heading";
-import { Lock, MessageCircle, Wallet } from "lucide-react";
+import { Lock, Mail, MessageCircle, Wallet } from "lucide-react";
 
 export default async function SettingsPage() {
   await requireAdmin();
@@ -64,6 +65,27 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <WhatsappTemplateForm initialTemplate={settings.whatsapp_template} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="size-4 text-muted-foreground" />
+            Email reminder body
+          </CardTitle>
+          <CardDescription>
+            The body of the rent-reminder email sent automatically (and on
+            demand) to residents. Same{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+              {"{placeholder}"}
+            </code>{" "}
+            tokens as WhatsApp — links auto-become clickable, UPI IDs get
+            highlighted in monospace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EmailTemplateForm initialTemplate={settings.email_template} />
         </CardContent>
       </Card>
 

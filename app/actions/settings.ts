@@ -72,3 +72,30 @@ export async function saveWhatsappTemplate(formData: FormData) {
   return { ok: true };
 }
 
+const emailTemplateSchema = z.object({
+  email_template: z.string().max(4000),
+});
+
+export async function saveEmailTemplate(formData: FormData) {
+  await requireAdmin();
+  const parsed = emailTemplateSchema.safeParse({
+    email_template: (formData.get("email_template") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  }
+  const supabase = createActionClient();
+  const value = parsed.data.email_template.trim();
+  // Empty string means "use the built-in default"
+  const { error } = await supabase
+    .from("app_settings")
+    .upsert({
+      key: "email_template",
+      value,
+      updated_at: new Date().toISOString(),
+    });
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
