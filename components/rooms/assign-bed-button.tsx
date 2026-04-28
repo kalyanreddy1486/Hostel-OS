@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { assignBedAction } from "@/app/actions/assignments";
+import {
+  assignBedAction,
+  markAssignmentInvoicePaid,
+  sendAssignmentInvoiceEmail,
+} from "@/app/actions/assignments";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +24,11 @@ import { cn } from "@/lib/utils";
 
 type Member = { id: string; name: string };
 type BillingMode = "monthly" | "daily";
+type FollowUp = {
+  invoiceId: string;
+  moveInDate: string;
+  memberHasEmail: boolean;
+};
 
 export function AssignBedButton({
   bedId,
@@ -33,6 +42,7 @@ export function AssignBedButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
   const [mode, setMode] = useState<BillingMode>("monthly");
   const [moveIn, setMoveIn] = useState(new Date().toISOString().slice(0, 10));
   const [checkout, setCheckout] = useState("");
@@ -47,6 +57,20 @@ export function AssignBedButton({
   })();
   const total = days * Number(rate || 0);
 
+  function resetForm() {
+    setFollowUp(null);
+    setMode("monthly");
+    setMoveIn(new Date().toISOString().slice(0, 10));
+    setCheckout("");
+    setRate("");
+  }
+
+  function closeAndRefresh() {
+    setOpen(false);
+    resetForm();
+    router.refresh();
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -59,13 +83,61 @@ export function AssignBedButton({
         toast.error(res.error);
         return;
       }
-      toast.success(
+      const baseMsg =
         mode === "daily"
           ? `Assigned to ${bedLabel} · invoice for ${days} day${days === 1 ? "" : "s"} created`
-          : `Assigned to ${bedLabel}`,
-      );
-      setOpen(false);
-      router.refresh();
+          : `Assigned to ${bedLabel}`;
+
+      // Move-in is today → email already auto-sent by the server action.
+      if (res.dateMatchesToday) {
+        toast.success(
+          res.emailSent ? `${baseMsg} · payment email sent` : baseMsg,
+        );
+        closeAndRefresh();
+        return;
+      }
+
+      // Back-dated / future-dated assignment: ask the admin what to do.
+      // If there's no invoice (e.g. monthly_rent ≤ deposit) there's nothing
+      // to email or mark paid — just close.
+      if (!res.invoiceId) {
+        toast.success(baseMsg);
+        closeAndRefresh();
+        return;
+      }
+
+      toast.success(baseMsg);
+      setFollowUp({
+        invoiceId: res.invoiceId,
+        moveInDate: moveIn,
+        memberHasEmail: res.memberHasEmail,
+      });
+    });
+  }
+
+  function onSendEmail() {
+    if (!followUp) return;
+    start(async () => {
+      const r = await sendAssignmentInvoiceEmail(followUp.invoiceId);
+      if ("error" in r && r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Payment email sent");
+      closeAndRefresh();
+    });
+  }
+
+  function onMarkPaid() {
+    if (!followUp) return;
+    start(async () => {
+      const r = await markAssignmentInvoicePaid(followUp.invoiceId);
+      if ("error" in r && r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Invoice marked paid for this cycle");
+      closeAndRefresh();
     });
   }
 
@@ -78,9 +150,26 @@ export function AssignBedButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) resetForm();
+      }}
+    >
       <DialogTrigger render={<Button size="sm" />}>Assign member</DialogTrigger>
       <DialogContent className="sm:max-w-md">
+        {followUp ? (
+          <FollowUpPanel
+            moveInDate={followUp.moveInDate}
+            memberHasEmail={followUp.memberHasEmail}
+            pending={pending}
+            onSendEmail={onSendEmail}
+            onMarkPaid={onMarkPaid}
+            onCancel={closeAndRefresh}
+          />
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle>Assign {bedLabel}</DialogTitle>
           <DialogDescription>
@@ -227,8 +316,88 @@ export function AssignBedButton({
             </Button>
           </DialogFooter>
         </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FollowUpPanel({
+  moveInDate,
+  memberHasEmail,
+  pending,
+  onSendEmail,
+  onMarkPaid,
+  onCancel,
+}: {
+  moveInDate: string;
+  memberHasEmail: boolean;
+  pending: boolean;
+  onSendEmail: () => void;
+  onMarkPaid: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Member assigned · what about the invoice?</DialogTitle>
+        <DialogDescription>
+          Move-in date <strong>{moveInDate}</strong> isn&rsquo;t today, so we
+          haven&rsquo;t sent any email yet. Pick one:
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <button
+          type="button"
+          disabled={pending || !memberHasEmail}
+          onClick={onSendEmail}
+          className={cn(
+            "w-full rounded-lg border px-4 py-3 text-left transition-colors",
+            "hover:border-primary hover:bg-primary/5",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          )}
+        >
+          <div className="text-sm font-medium">
+            Send the payment email now
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {memberHasEmail
+              ? `UPI link + complaint link, dated ${moveInDate}. Includes "if already paid, please ignore".`
+              : "This member has no email on file — add one in their profile to enable this."}
+          </div>
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onMarkPaid}
+          className={cn(
+            "w-full rounded-lg border px-4 py-3 text-left transition-colors",
+            "hover:border-primary hover:bg-primary/5",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          )}
+        >
+          <div className="text-sm font-medium">
+            Don&rsquo;t send · mark this cycle as paid
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Records a cash payment for the full invoice amount and marks it
+            paid. Use this when rent for this cycle was already settled
+            offline.
+          </div>
+        </button>
+      </div>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          Decide later
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 

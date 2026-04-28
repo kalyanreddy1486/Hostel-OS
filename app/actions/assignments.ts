@@ -5,11 +5,16 @@ import { z } from "zod";
 import { createActionClient } from "@/lib/supabase/action";
 import { writeAudit } from "@/lib/audit";
 import { requireStaffOrAdmin } from "@/lib/require-role";
-import { fireAndForgetEmail } from "@/lib/email/send";
-import { invoiceCreatedEmail } from "@/lib/email/templates";
+import { sendFreshInvoiceEmail } from "@/app/actions/email-reminders";
 import type { Database } from "@/lib/database.types";
 
 type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
+
+function todayIst(): string {
+  // sv-SE → YYYY-MM-DD format. Asia/Kolkata so a 23:00 UTC click on the 27th
+  // (which is already the 28th in IST) compares against the 28th.
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" });
+}
 
 const assignSchema = z
   .object({
@@ -180,11 +185,15 @@ export async function assignBedAction(formData: FormData) {
     }
   }
 
+  const dateMatchesToday = v.move_in_date === todayIst();
+  let invoiceId: string | null = null;
+  let emailSent = false;
+
   if (invoicePayload) {
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .insert(invoicePayload)
-      .select("id, invoice_number, total_amount, billing_month, due_date")
+      .select("id, invoice_number, total_amount, billing_month, due_date, tenant_id")
       .single();
 
     if (invErr) {
@@ -194,6 +203,7 @@ export async function assignBedAction(formData: FormData) {
     }
 
     if (inv) {
+      invoiceId = inv.id;
       await writeAudit(supabase, {
         action: "create",
         table_name: "invoices",
@@ -201,15 +211,13 @@ export async function assignBedAction(formData: FormData) {
         new_values: invoicePayload as unknown as Record<string, unknown>,
       });
 
-      if (member?.email) {
-        const tpl = invoiceCreatedEmail({
-          memberName: member.name ?? "there",
-          invoiceNumber: inv.invoice_number ?? inv.id.slice(0, 8),
-          billingMonth: String(inv.billing_month ?? v.move_in_date),
-          total: Number(inv.total_amount ?? invoicePayload.total_amount ?? 0),
-          dueDate: inv.due_date ?? null,
-        });
-        fireAndForgetEmail({ to: member.email, ...tpl });
+      // Auto-send the rent reminder (with UPI link + complaint link + "ignore
+      // if already paid" footer) only when the move-in date is today. For
+      // back-dated or future-dated assignments the admin gets a follow-up
+      // prompt in the UI to choose: send email, or mark this invoice paid.
+      if (dateMatchesToday && member?.email) {
+        const r = await sendFreshInvoiceEmail(inv.id, inv.tenant_id ?? undefined);
+        emailSent = r.ok === true;
       }
     }
 
@@ -219,5 +227,121 @@ export async function assignBedAction(formData: FormData) {
   revalidatePath("/assignments");
   revalidatePath("/members");
   revalidatePath("/rooms");
-  return { ok: true, assignmentId };
+  return {
+    ok: true,
+    assignmentId,
+    invoiceId,
+    dateMatchesToday,
+    memberHasEmail: Boolean(member?.email),
+    emailSent,
+  };
+}
+
+// ---------- Assignment follow-up actions ---------------------------------
+// Used by the "What should we do about this invoice?" dialog that pops up
+// after a back-dated / future-dated assignment.
+
+const invoiceIdSchema = z.object({ invoice_id: z.string().uuid() });
+
+/**
+ * Send the rent-reminder email (UPI + claim + complaint links, "ignore if
+ * already paid" footer) for an invoice that was just created by an
+ * assignment whose move-in date didn't match today.
+ */
+export async function sendAssignmentInvoiceEmail(invoiceId: string) {
+  await requireStaffOrAdmin();
+  const parsed = invoiceIdSchema.safeParse({ invoice_id: invoiceId });
+  if (!parsed.success) return { error: "Invalid invoice id." };
+
+  const supabase = createActionClient();
+  const { data: inv } = await supabase
+    .from("invoices")
+    .select("id, tenant_id, member:members(email)")
+    .eq("id", parsed.data.invoice_id)
+    .maybeSingle();
+  if (!inv) return { error: "Invoice not found." };
+  const memberRow = Array.isArray(inv.member) ? inv.member[0] : inv.member;
+  if (!memberRow?.email) {
+    return { error: "Member has no email on file." };
+  }
+
+  const r = await sendFreshInvoiceEmail(inv.id, inv.tenant_id ?? undefined);
+  if (!r.ok) {
+    return {
+      error:
+        "message" in r && r.message
+          ? r.message
+          : "Could not send the email. Please try again.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Skip the email and mark this assignment's first-cycle invoice paid in full.
+ * Used when an admin is back-recording an assignment for a resident who has
+ * already settled the rent for the current cycle.
+ */
+export async function markAssignmentInvoicePaid(invoiceId: string) {
+  await requireStaffOrAdmin();
+  const parsed = invoiceIdSchema.safeParse({ invoice_id: invoiceId });
+  if (!parsed.success) return { error: "Invalid invoice id." };
+
+  const supabase = createActionClient();
+  const { data: inv } = await supabase
+    .from("invoices")
+    .select("id, member_id, total_amount, status, due_date, billing_month")
+    .eq("id", parsed.data.invoice_id)
+    .maybeSingle();
+  if (!inv) return { error: "Invoice not found." };
+  if (inv.status === "paid") {
+    // Idempotent — UI may double-click. Treat as success.
+    return { ok: true };
+  }
+
+  const total = Number(inv.total_amount ?? 0);
+
+  const paymentInsert = {
+    member_id: inv.member_id as string,
+    invoice_id: inv.id,
+    amount: total,
+    payment_date: (inv.due_date as string | null) ?? todayIst(),
+    payment_mode: "cash",
+    notes: "Marked paid on assignment (rent already settled offline)",
+  };
+
+  const { data: pay, error: payErr } = await supabase
+    .from("payments")
+    .insert(paymentInsert)
+    .select("id")
+    .single();
+  if (payErr || !pay) {
+    return { error: "Could not record the payment. Please try again." };
+  }
+
+  const { error: invErr } = await supabase
+    .from("invoices")
+    .update({ status: "paid" })
+    .eq("id", inv.id);
+  if (invErr) {
+    return { error: "Could not update the invoice. Please try again." };
+  }
+
+  await writeAudit(supabase, {
+    action: "create",
+    table_name: "payments",
+    record_id: pay.id,
+    new_values: paymentInsert,
+  });
+  await writeAudit(supabase, {
+    action: "update",
+    table_name: "invoices",
+    record_id: inv.id,
+    new_values: { status: "paid" },
+  });
+
+  revalidatePath("/billing");
+  revalidatePath(`/billing/${inv.id}`);
+  revalidatePath("/payments");
+  return { ok: true };
 }
