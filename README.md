@@ -9,8 +9,7 @@
 ## 🌐 Live
 
 - **App:** https://hostel-os-zeta.vercel.app
-- **Demo login:** `895kkr@gmail.com` / `kalyan123456`
-- **Or:** sign up your own hostel at https://hostel-os-zeta.vercel.app/register
+- **Try it:** sign up your own hostel at https://hostel-os-zeta.vercel.app/register (email OTP, takes a minute)
 
 ---
 
